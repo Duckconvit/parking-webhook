@@ -1,31 +1,10 @@
-const express = require("express");
-const admin   = require("firebase-admin");
-
-const app = express();
-
-app.use(express.json());
-
-admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-  }),
-  databaseURL: process.env.FIREBASE_DATABASE_URL,
-});
-
-const db = admin.database();
-
 app.post("/webhook", async (req, res) => {
   const data = req.body;
 
   console.log("[Webhook]", JSON.stringify(data));
 
-  if (data.transferType !== "in") {
-    return res.send("ignored");
-  }
-
-  const content = (data.content || "")
+  // bỏ check transferType vì SePay không gửi field này
+  const content = (data.description || "")
     .toUpperCase()
     .replace(/\s+/g, "");
 
@@ -37,9 +16,14 @@ app.post("/webhook", async (req, res) => {
 
   const uid = match[1];
 
-  const amount = data.transferAmount || 0;
+  // SePay dùng amount hoặc transferAmount tùy payload
+  const amount =
+    data.transferAmount ||
+    data.amount ||
+    0;
 
-  if (amount < 50000) {
+  // đổi từ 50000 xuống 2000
+  if (amount < 2000) {
     return res.send("amount too low");
   }
 
@@ -72,7 +56,9 @@ app.post("/webhook", async (req, res) => {
   await cardRef.update({
     expiry: newExpiry,
     active: true,
-    lastPayment: data.transactionDate || new Date().toISOString(),
+    lastPayment:
+      data.transactionDate ||
+      new Date().toISOString(),
     lastAmount: amount,
   });
 
@@ -86,12 +72,4 @@ app.post("/webhook", async (req, res) => {
   console.log(`✅ Thẻ ${uid} → gia hạn đến ${newExpiry}`);
 
   res.send("ok");
-});
-
-app.get("/", (req, res) => {
-  res.send("Parking webhook running ✅");
-});
-
-app.listen(3000, () => {
-  console.log("Server chạy port 3000");
 });
