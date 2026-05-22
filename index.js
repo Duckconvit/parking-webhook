@@ -29,6 +29,14 @@ app.post("/webhook", async (req, res) => {
     .toUpperCase()
     .replace(/\s+/g, "");
 
+  // ── KHÁCH VÃNG LAI ──────────────────────────
+  if (content.includes("KHACHVANGLAI")) {
+    await db.ref("/parking/walkin").set("yes");
+    console.log("✅ Khách vãng lai → set walkin = yes");
+    return res.send("walkin ok");
+  }
+  // ────────────────────────────────────────────
+  
   const match = content.match(/GIAHANTHE([A-F0-9]{8})/);
 
   if (!match) {
